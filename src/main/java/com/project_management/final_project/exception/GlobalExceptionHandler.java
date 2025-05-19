@@ -1,6 +1,6 @@
 package com.project_management.final_project.exception;
 
-import com.project_management.final_project.dto.ApiResponse;
+import com.project_management.final_project.dto.response.ApiResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
