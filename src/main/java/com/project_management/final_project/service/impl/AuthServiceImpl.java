@@ -170,54 +170,7 @@ public class AuthServiceImpl implements AuthService {
         String refreshToken = generateRefreshToken(user);
         return new AuthResponse(accessToken, refreshToken);
     }
-    
-    @Override
-    public User register(RegisterRequest request) {
-        // Validate email format
-        if (!ValidationUtil.isValidEmail(request.getEmail())) {
-            logger.warn("Invalid email format: {}", request.getEmail());
-            throw new AppException(ErrorCode.INVALID_EMAIL_FORMAT);
-        }
-        
-        // Validate password format
-        if (!ValidationUtil.isValidPassword(request.getPassword())) {
-            logger.warn("Invalid password format");
-            throw new AppException(ErrorCode.INVALID_PASSWORD_FORMAT);
-        }
-        
-        // Check if email already exists
-        if (userRepository.existsByEmail(request.getEmail())) {
-            logger.warn("Email already exists: {}", request.getEmail());
-            throw new AppException(ErrorCode.ACCOUNT_INVALID);
-        }
-        
-        // Check if phone number already exists (if provided)
-        if (request.getPhoneNumber() != null && !request.getPhoneNumber().isEmpty() 
-                && userRepository.existsByPhoneNumber(request.getPhoneNumber())) {
-            logger.warn("Phone number already exists: {}", request.getPhoneNumber());
-            throw new AppException(ErrorCode.ACCOUNT_INVALID);
-        }
-        
-        // Get default user role (assuming role_id 2 is for regular users)
-        Role userRole = roleRepository.findById(2)
-                .orElseThrow(() -> new AppException(ErrorCode.INTERNAL_ERROR));
-        
-        // Create new user
-        User newUser = User.builder()
-                .name(request.getName())
-                .email(request.getEmail())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .phoneNumber(request.getPhoneNumber())
-                .dateOfBirth(request.getDateOfBirth())
-                .gender(request.getGender())
-                .role(userRole)
-                .status(User.Status.ACTIVE)
-                .build();
-        
-        // Save user
-        return userRepository.save(newUser);
-    }
-    
+ 
     @Override
     public void resetPassword(ResetPasswordRequest request) {
         try {

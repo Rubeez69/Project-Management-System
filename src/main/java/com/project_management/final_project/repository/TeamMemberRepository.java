@@ -21,4 +21,12 @@ public interface TeamMemberRepository extends JpaRepository<TeamMember, Integer>
     List<TeamMember> findTopNByProjectIdOrderByAddedAtDesc(
             @Param("projectId") Integer projectId, 
             org.springframework.data.domain.Pageable pageable);
+            
+    /**
+     * Check if a user is already a member of a project
+     * @param userId The user ID
+     * @param projectId The project ID
+     * @return true if the user is already a member of the project, false otherwise
+     */
+    boolean existsByUserIdAndProjectId(Integer userId, Integer projectId);
 } 

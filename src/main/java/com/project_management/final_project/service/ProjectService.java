@@ -1,11 +1,14 @@
 package com.project_management.final_project.service;
 
+import com.project_management.final_project.dto.request.AddTeamMemberRequest;
 import com.project_management.final_project.dto.request.CreateProjectRequest;
 import com.project_management.final_project.dto.request.ProjectFilterRequest;
 import com.project_management.final_project.dto.request.UpdateProjectRequest;
 import com.project_management.final_project.dto.response.PagedResponse;
 import com.project_management.final_project.dto.response.ProjectDetailResponse;
 import com.project_management.final_project.dto.response.ProjectResponse;
+
+import java.util.List;
 
 public interface ProjectService {
     /**
@@ -43,4 +46,12 @@ public interface ProjectService {
      * @return The project details with team members
      */
     ProjectDetailResponse getProjectDetail(Integer id);
+    
+    /**
+     * Add team members to a project
+     * @param projectId The ID of the project to add members to
+     * @param requests List of team member requests containing user ID and specialization ID
+     * @return Number of team members added
+     */
+    int addTeamMembers(Integer projectId, List<AddTeamMemberRequest> requests);
 } 
