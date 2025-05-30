@@ -16,7 +16,17 @@ public enum ErrorCode {
     TOKEN_MALFORMED(HttpStatus.BAD_REQUEST, "Malformed token"),
     TOKEN_GENERATION_FAILED(HttpStatus.BAD_REQUEST, "Failed to generate tokens"),
     ACCOUNT_INVALID(HttpStatus.BAD_REQUEST, "Email or password invalid!"),
-    UNAUTHENTICATED(HttpStatus.UNAUTHORIZED, "Unauthenticated");
+    UNAUTHENTICATED(HttpStatus.UNAUTHORIZED, "Unauthenticated"),
+    OTP_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to generate OTP"),
+    OTP_EXPIRED(HttpStatus.BAD_REQUEST, "OTP has expired"),
+    OTP_INVALID(HttpStatus.BAD_REQUEST, "Invalid OTP"),
+    EMAIL_SENDING_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to send email"),
+    INVALID_EMAIL_FORMAT(HttpStatus.BAD_REQUEST, "Invalid email format. Please use a valid email address."),
+    INVALID_PASSWORD_FORMAT(HttpStatus.BAD_REQUEST, "Invalid password format. Password must be at least 8 characters long and contain at least one letter and one number."),
+    PASSWORD_RESET_FAILED(HttpStatus.BAD_REQUEST, "Password reset failed. The token may be invalid or expired."),
+    NOT_FOUND(HttpStatus.NOT_FOUND, "Resource not found"),
+    UNAUTHORIZED(HttpStatus.FORBIDDEN, "Not authorized to perform this action");
+    
     private final HttpStatus status;
     private final String message;
 }
