@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -28,6 +29,16 @@ public class User {
     @Column(nullable = false, length = 255)
     @JsonIgnore
     private String password;
+
+    @Column(name = "phone_number", length = 20)
+    private String phoneNumber;
+
+    @Column(name = "date_of_birth")
+    private LocalDate dateOfBirth;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10)
+    private Gender gender;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_id", nullable = false)
@@ -57,5 +68,11 @@ public class User {
     public enum Status {
         ACTIVE,
         INACTIVE
+    }
+
+    public enum Gender {
+        MALE,
+        FEMALE,
+        OTHER
     }
 }

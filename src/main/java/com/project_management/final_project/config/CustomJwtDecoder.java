@@ -49,12 +49,17 @@ public class CustomJwtDecoder implements JwtDecoder{
 
             Claims claims = authService.validateToken(token);
 
+            // Create headers map with at least one entry
+            Map<String, Object> headers = new HashMap<>();
+            headers.put("alg", "HS512");
+            headers.put("typ", "JWT");
+
             // Step 3: Build Spring Security Jwt object
             return new Jwt(
                     token,
                     claims.getIssuedAt() != null ? claims.getIssuedAt().toInstant() : null,
                     claims.getExpiration() != null ? claims.getExpiration().toInstant() : null,
-                    Map.of(),
+                    headers,
                     new HashMap<>(claims)
             );
 

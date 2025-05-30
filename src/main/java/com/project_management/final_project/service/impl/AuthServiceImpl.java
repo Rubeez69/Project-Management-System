@@ -3,14 +3,19 @@ package com.project_management.final_project.service.impl;
 import com.project_management.final_project.config.JwtKeyProvider;
 import com.project_management.final_project.dto.request.AuthRequest;
 import com.project_management.final_project.dto.request.IntrospectRequest;
+import com.project_management.final_project.dto.request.RegisterRequest;
+import com.project_management.final_project.dto.request.ResetPasswordRequest;
 import com.project_management.final_project.dto.response.AuthResponse;
 import com.project_management.final_project.dto.response.IntrospectResponse;
 import com.project_management.final_project.dto.response.PermissionResponse;
+import com.project_management.final_project.entities.Role;
 import com.project_management.final_project.entities.User;
 import com.project_management.final_project.exception.AppException;
 import com.project_management.final_project.exception.ErrorCode;
+import com.project_management.final_project.repository.RoleRepository;
 import com.project_management.final_project.repository.UserRepository;
 import com.project_management.final_project.service.AuthService;
+import com.project_management.final_project.util.ValidationUtil;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
@@ -26,6 +31,7 @@ import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.Date;
 import java.util.stream.Collectors;
@@ -43,11 +49,13 @@ public class AuthServiceImpl implements AuthService {
 
     private SecretKey key;
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private static final Logger logger = LoggerFactory.getLogger(AuthServiceImpl.class);
 
-    public AuthServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtKeyProvider jwtKeyProvider) {
+    public AuthServiceImpl(UserRepository userRepository, RoleRepository roleRepository, PasswordEncoder passwordEncoder, JwtKeyProvider jwtKeyProvider) {
         this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
         this.key = jwtKeyProvider.getKey();
     }
@@ -142,13 +150,114 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponse login(AuthRequest request) {
+        // Validate email format
+        if (!ValidationUtil.isValidEmail(request.getEmail())) {
+            logger.warn("Invalid email format: {}", request.getEmail());
+            throw new AppException(ErrorCode.INVALID_EMAIL_FORMAT);
+        }
+        
+        // Validate password format (only for registration, not for login)
+        // For login, we just check if the user exists and if the password matches
+        
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+                
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new AppException(ErrorCode.ACCOUNT_INVALID);
         }
+        
         String accessToken = generateAccessToken(user);
         String refreshToken = generateRefreshToken(user);
         return new AuthResponse(accessToken, refreshToken);
+    }
+    
+    @Override
+    public User register(RegisterRequest request) {
+        // Validate email format
+        if (!ValidationUtil.isValidEmail(request.getEmail())) {
+            logger.warn("Invalid email format: {}", request.getEmail());
+            throw new AppException(ErrorCode.INVALID_EMAIL_FORMAT);
+        }
+        
+        // Validate password format
+        if (!ValidationUtil.isValidPassword(request.getPassword())) {
+            logger.warn("Invalid password format");
+            throw new AppException(ErrorCode.INVALID_PASSWORD_FORMAT);
+        }
+        
+        // Check if email already exists
+        if (userRepository.existsByEmail(request.getEmail())) {
+            logger.warn("Email already exists: {}", request.getEmail());
+            throw new AppException(ErrorCode.ACCOUNT_INVALID);
+        }
+        
+        // Check if phone number already exists (if provided)
+        if (request.getPhoneNumber() != null && !request.getPhoneNumber().isEmpty() 
+                && userRepository.existsByPhoneNumber(request.getPhoneNumber())) {
+            logger.warn("Phone number already exists: {}", request.getPhoneNumber());
+            throw new AppException(ErrorCode.ACCOUNT_INVALID);
+        }
+        
+        // Get default user role (assuming role_id 2 is for regular users)
+        Role userRole = roleRepository.findById(2)
+                .orElseThrow(() -> new AppException(ErrorCode.INTERNAL_ERROR));
+        
+        // Create new user
+        User newUser = User.builder()
+                .name(request.getName())
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .phoneNumber(request.getPhoneNumber())
+                .dateOfBirth(request.getDateOfBirth())
+                .gender(request.getGender())
+                .role(userRole)
+                .status(User.Status.ACTIVE)
+                .build();
+        
+        // Save user
+        return userRepository.save(newUser);
+    }
+    
+    @Override
+    public void resetPassword(ResetPasswordRequest request) {
+        try {
+            // Validate the token
+            Claims claims = validateToken(request.getToken());
+            
+            // Extract email from token
+            String email = claims.get("email", String.class);
+            if (email == null) {
+                logger.warn("Email not found in token");
+                throw new AppException(ErrorCode.TOKEN_INVALID);
+            }
+            
+            // Check token type
+            String tokenType = claims.get("type", String.class);
+            if (!"OTP_VERIFICATION".equals(tokenType)) {
+                logger.warn("Invalid token type: {}", tokenType);
+                throw new AppException(ErrorCode.TOKEN_INVALID);
+            }
+            
+            // Validate new password format
+            if (!ValidationUtil.isValidPassword(request.getNewPassword())) {
+                logger.warn("Invalid password format");
+                throw new AppException(ErrorCode.INVALID_PASSWORD_FORMAT);
+            }
+            
+            // Find user by email
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+            
+            // Update password
+            user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+            userRepository.save(user);
+            
+            logger.info("Password reset successful for user: {}", email);
+        } catch (AppException e) {
+            throw e;
+        } catch (Exception e) {
+            logger.error("Password reset failed: {}", e.getMessage());
+            throw new AppException(ErrorCode.PASSWORD_RESET_FAILED);
+        }
     }
 }
