@@ -3,16 +3,13 @@ package com.project_management.final_project.service.impl;
 import com.project_management.final_project.config.JwtKeyProvider;
 import com.project_management.final_project.dto.request.AuthRequest;
 import com.project_management.final_project.dto.request.IntrospectRequest;
-import com.project_management.final_project.dto.request.RegisterRequest;
 import com.project_management.final_project.dto.request.ResetPasswordRequest;
 import com.project_management.final_project.dto.response.AuthResponse;
 import com.project_management.final_project.dto.response.IntrospectResponse;
 import com.project_management.final_project.dto.response.PermissionResponse;
-import com.project_management.final_project.entities.Role;
 import com.project_management.final_project.entities.User;
 import com.project_management.final_project.exception.AppException;
 import com.project_management.final_project.exception.ErrorCode;
-import com.project_management.final_project.repository.RoleRepository;
 import com.project_management.final_project.repository.UserRepository;
 import com.project_management.final_project.service.AuthService;
 import com.project_management.final_project.util.ValidationUtil;
@@ -20,9 +17,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
-import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SecurityException;
-import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,8 +25,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.Date;
 import java.util.stream.Collectors;
@@ -49,13 +42,11 @@ public class AuthServiceImpl implements AuthService {
 
     private SecretKey key;
     private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private static final Logger logger = LoggerFactory.getLogger(AuthServiceImpl.class);
 
-    public AuthServiceImpl(UserRepository userRepository, RoleRepository roleRepository, PasswordEncoder passwordEncoder, JwtKeyProvider jwtKeyProvider) {
+    public AuthServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtKeyProvider jwtKeyProvider) {
         this.userRepository = userRepository;
-        this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
         this.key = jwtKeyProvider.getKey();
     }

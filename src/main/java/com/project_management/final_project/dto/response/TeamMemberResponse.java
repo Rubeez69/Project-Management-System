@@ -12,6 +12,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class TeamMemberResponse {
     private Integer id;
+    private Integer userId;
+    private String profile;
     private String name;
     private String email;
     private String specialization;
@@ -23,6 +25,8 @@ public class TeamMemberResponse {
         
         return TeamMemberResponse.builder()
                 .id(teamMember.getId())
+                .userId(teamMember.getUser() != null ? teamMember.getUser().getId() : null)
+                .profile(teamMember.getUser() != null ? teamMember.getUser().getProfile() : null)
                 .name(teamMember.getUser() != null ? teamMember.getUser().getName() : null)
                 .email(teamMember.getUser() != null ? teamMember.getUser().getEmail() : null)
                 .specialization(teamMember.getSpecialization() != null ? 

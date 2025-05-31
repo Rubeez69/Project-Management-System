@@ -5,6 +5,7 @@ import com.project_management.final_project.dto.request.ProjectFilterRequest;
 import com.project_management.final_project.dto.request.UpdateProjectRequest;
 import com.project_management.final_project.dto.response.PagedResponse;
 import com.project_management.final_project.dto.response.ProjectDetailResponse;
+import com.project_management.final_project.dto.response.ProjectDropdownResponse;
 import com.project_management.final_project.dto.response.ProjectResponse;
 
 public interface ProjectService {
@@ -43,4 +44,13 @@ public interface ProjectService {
      * @return The project details with team members
      */
     ProjectDetailResponse getProjectDetail(Integer id);
+    
+    /**
+     * Get projects for dropdown with minimal information (id and name only)
+     * @param search Optional search term for project name
+     * @param page Page number (zero-based)
+     * @param size Page size
+     * @return A paged response of projects with minimal information
+     */
+    PagedResponse<ProjectDropdownResponse> getProjectsForDropdown(String search, int page, int size);
 } 
