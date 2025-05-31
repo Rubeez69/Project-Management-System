@@ -15,6 +15,7 @@ public class UserResponse {
     private String name;
     private String email;
     private String role;
+    private String profile;
     
     public static UserResponse fromEntity(User user) {
         if (user == null) {
@@ -26,6 +27,7 @@ public class UserResponse {
                 .name(user.getName())
                 .email(user.getEmail())
                 .role(user.getRole() != null ? user.getRole().getName() : null)
+                .profile(user.getProfile())
                 .build();
     }
 } 

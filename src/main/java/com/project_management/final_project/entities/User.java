@@ -36,6 +36,9 @@ public class User {
     @Column(name = "date_of_birth")
     private LocalDate dateOfBirth;
 
+    @Column(length = 255)
+    private String profile;
+
     @Enumerated(EnumType.STRING)
     @Column(length = 10)
     private Gender gender;
