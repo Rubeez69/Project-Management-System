@@ -1,6 +1,5 @@
 package com.project_management.final_project.controller;
 
-import com.project_management.final_project.dto.request.AddTeamMemberRequest;
 import com.project_management.final_project.dto.request.CreateProjectRequest;
 import com.project_management.final_project.dto.request.ProjectFilterRequest;
 import com.project_management.final_project.dto.request.UpdateProjectRequest;
@@ -15,9 +14,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/projects")
@@ -86,17 +82,5 @@ public class ProjectController {
             @RequestBody UpdateProjectRequest request) {
         ProjectResponse updatedProject = projectService.updateProject(id, request);
         return ApiResponseUtil.success(updatedProject);
-    }
-    
-    @PostMapping("/{id}/add-members")
-    @PreAuthorize("hasRole('PROJECT_MANAGER') and hasAuthority('TEAM_CREATE')")
-    public ApiResponse<Map<String, Object>> addTeamMembers(
-            @PathVariable Integer id,
-            @Valid @RequestBody List<AddTeamMemberRequest> requests) {
-        int addedCount = projectService.addTeamMembers(id, requests);
-        return ApiResponseUtil.success(Map.of(
-                "message", "Team members added successfully",
-                "addedCount", addedCount
-        ));
     }
 } 

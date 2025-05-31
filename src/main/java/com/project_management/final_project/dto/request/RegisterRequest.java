@@ -17,4 +17,5 @@ public class RegisterRequest {
     private String phoneNumber;
     private LocalDate dateOfBirth;
     private User.Gender gender;
+    private String profile;
 } 
