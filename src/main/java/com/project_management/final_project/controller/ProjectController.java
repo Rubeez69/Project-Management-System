@@ -6,6 +6,7 @@ import com.project_management.final_project.dto.request.UpdateProjectRequest;
 import com.project_management.final_project.dto.response.ApiResponse;
 import com.project_management.final_project.dto.response.PagedResponse;
 import com.project_management.final_project.dto.response.ProjectDetailResponse;
+import com.project_management.final_project.dto.response.ProjectDropdownResponse;
 import com.project_management.final_project.dto.response.ProjectResponse;
 import com.project_management.final_project.entities.Project;
 import com.project_management.final_project.service.ProjectService;
@@ -51,6 +52,17 @@ public class ProjectController {
                 .build();
         
         PagedResponse<ProjectResponse> response = projectService.getAllProjects(filterRequest);
+        return ApiResponseUtil.success(response);
+    }
+    
+    @GetMapping("/dropdown")
+    @PreAuthorize("hasRole('PROJECT_MANAGER') and hasAuthority('PROJECT_VIEW')")
+    public ApiResponse<PagedResponse<ProjectDropdownResponse>> getAllProjectsDropdown(
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "5") Integer size) {
+        
+        PagedResponse<ProjectDropdownResponse> response = projectService.getProjectsForDropdown(search, page, size);
         return ApiResponseUtil.success(response);
     }
     

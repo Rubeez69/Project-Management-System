@@ -6,6 +6,7 @@ import com.project_management.final_project.dto.request.ProjectFilterRequest;
 import com.project_management.final_project.dto.request.UpdateProjectRequest;
 import com.project_management.final_project.dto.response.PagedResponse;
 import com.project_management.final_project.dto.response.ProjectDetailResponse;
+import com.project_management.final_project.dto.response.ProjectDropdownResponse;
 import com.project_management.final_project.dto.response.ProjectResponse;
 import com.project_management.final_project.dto.response.TeamMemberResponse;
 import com.project_management.final_project.entities.Project;
@@ -216,6 +217,35 @@ public class ProjectServiceImpl implements ProjectService {
         } catch (Exception e) {
             logger.error("Error retrieving project detail ID {}: {}", id, e.getMessage(), e);
             throw new AppException(ErrorCode.INTERNAL_ERROR, "Failed to retrieve project detail");
+        }
+    }
+    
+    @Override
+    public PagedResponse<ProjectDropdownResponse> getProjectsForDropdown(String search, int page, int size) {
+        try {
+            // Get current user ID
+            Integer currentUserId = securityUtil.getCurrentUserId();
+            
+            // Create pageable with sorting by name
+            Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "name"));
+            
+            // Query projects with name filter and created by current user
+            Page<Project> projectsPage = projectRepository.findProjectsByFilters(
+                    search, // Only filter by name
+                    null,   // No status filter
+                    currentUserId, // Only projects created by current user
+                    pageable
+            );
+            
+            // Map to dropdown response DTOs
+            Page<ProjectDropdownResponse> projectDropdownPage = projectsPage.map(ProjectDropdownResponse::fromEntity);
+            
+            logger.info("Retrieved {} projects for dropdown for user ID {}", projectsPage.getTotalElements(), currentUserId);
+            
+            return PagedResponse.fromPage(projectDropdownPage);
+        } catch (Exception e) {
+            logger.error("Error retrieving projects for dropdown: {}", e.getMessage(), e);
+            throw new AppException(ErrorCode.INTERNAL_ERROR, "Failed to retrieve projects for dropdown");
         }
     }
 } 

@@ -2,6 +2,8 @@ package com.project_management.final_project.service.impl;
 
 import com.project_management.final_project.config.SecurityUtil;
 import com.project_management.final_project.dto.request.AddTeamMemberRequest;
+import com.project_management.final_project.dto.request.TeamMemberFilterRequest;
+import com.project_management.final_project.dto.response.TeamMemberResponse;
 import com.project_management.final_project.entities.Project;
 import com.project_management.final_project.entities.Specialization;
 import com.project_management.final_project.entities.TeamMember;
@@ -16,6 +18,8 @@ import com.project_management.final_project.service.TeamMemberService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -108,6 +112,96 @@ public class TeamMemberServiceImpl implements TeamMemberService {
         } catch (Exception e) {
             logger.error("Error adding team members to project ID {}: {}", projectId, e.getMessage(), e);
             throw new AppException(ErrorCode.INTERNAL_ERROR, "Failed to add team members to project");
+        }
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public Page<TeamMemberResponse> getProjectTeamMembers(Integer projectId, TeamMemberFilterRequest filterRequest, Pageable pageable) {
+        try {
+            // Get current user ID
+            Integer currentUserId = securityUtil.getCurrentUserId();
+            
+            // Find the project by ID
+            Project project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, "Project not found with ID: " + projectId));
+            
+            // Check if the current user is the creator of the project
+            if (!project.getCreatedBy().getId().equals(currentUserId)) {
+                logger.warn("User ID {} attempted to view members of project ID {} created by user ID {}", 
+                        currentUserId, projectId, project.getCreatedBy().getId());
+                throw new AppException(ErrorCode.UNAUTHORIZED, "You are not authorized to view members of this project");
+            }
+            
+            // Get team members with filters
+            Page<TeamMember> teamMembers = teamMemberRepository.findByProjectIdWithFilters(
+                    projectId,
+                    filterRequest.getSearch(),
+                    filterRequest.getSpecializationId(),
+                    pageable
+            );
+            
+            // Map to response DTOs using the existing fromEntity method
+            return teamMembers.map(TeamMemberResponse::fromEntity);
+            
+        } catch (AppException e) {
+            throw e;
+        } catch (Exception e) {
+            logger.error("Error retrieving team members for project ID {}: {}", projectId, e.getMessage(), e);
+            throw new AppException(ErrorCode.INTERNAL_ERROR, "Failed to retrieve team members");
+        }
+    }
+    
+    @Override
+    @Transactional
+    public boolean deleteTeamMember(Integer teamMemberId) {
+        try {
+            logger.info("Attempting to delete team member with ID: {}", teamMemberId);
+            
+            // Get current user ID
+            Integer currentUserId = securityUtil.getCurrentUserId();
+            logger.debug("Current user ID: {}", currentUserId);
+            
+            // Find the team member by ID
+            TeamMember teamMember = teamMemberRepository.findById(teamMemberId)
+                    .orElseThrow(() -> {
+                        logger.warn("Team member not found with ID: {}", teamMemberId);
+                        return new AppException(ErrorCode.NOT_FOUND, "Team member not found with ID: " + teamMemberId);
+                    });
+            
+            // Get the project associated with the team member
+            Project project = teamMember.getProject();
+            if (project == null) {
+                logger.error("Team member ID {} has no associated project", teamMemberId);
+                throw new AppException(ErrorCode.INTERNAL_ERROR, "Team member has no associated project");
+            }
+            
+            User projectCreator = project.getCreatedBy();
+            if (projectCreator == null) {
+                logger.error("Project ID {} has no creator", project.getId());
+                throw new AppException(ErrorCode.INTERNAL_ERROR, "Project has no creator");
+            }
+            
+            // Check if the current user is the creator of the project
+            if (!projectCreator.getId().equals(currentUserId)) {
+                logger.warn("User ID {} attempted to delete team member ID {} from project ID {} created by user ID {}", 
+                        currentUserId, teamMemberId, project.getId(), projectCreator.getId());
+                throw new AppException(ErrorCode.UNAUTHORIZED, "You are not authorized to remove members from this project");
+            }
+            
+            // Delete the team member
+            teamMemberRepository.delete(teamMember);
+            
+            logger.info("Successfully deleted team member ID {} from project ID {}", teamMemberId, project.getId());
+            
+            return true;
+            
+        } catch (AppException e) {
+            logger.error("Application exception while deleting team member ID {}: {}", teamMemberId, e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            logger.error("Error deleting team member ID {}: {}", teamMemberId, e.getMessage(), e);
+            throw new AppException(ErrorCode.INTERNAL_ERROR, "Failed to delete team member: " + e.getMessage());
         }
     }
 } 
