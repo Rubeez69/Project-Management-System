@@ -50,4 +50,26 @@ public interface TeamMemberRepository extends JpaRepository<TeamMember, Integer>
             @Param("search") String search,
             @Param("specializationId") Integer specializationId,
             Pageable pageable);
+            
+    /**
+     * Find team members by project ID excluding a specific user ID with optional search and specialization filter
+     * @param projectId The project ID
+     * @param excludeUserId The user ID to exclude
+     * @param search Optional search term for user name or email
+     * @param specializationId Optional specialization ID filter
+     * @param pageable Pagination information
+     * @return Page of team members
+     */
+    @Query("SELECT tm FROM TeamMember tm " +
+           "WHERE tm.project.id = :projectId " +
+           "AND tm.user.id != :excludeUserId " +
+           "AND (:search IS NULL OR LOWER(tm.user.name) LIKE LOWER(CONCAT('%', :search, '%')) " +
+           "    OR LOWER(tm.user.email) LIKE LOWER(CONCAT('%', :search, '%'))) " +
+           "AND (:specializationId IS NULL OR tm.specialization.id = :specializationId)")
+    Page<TeamMember> findByProjectIdExcludingUserWithFilters(
+            @Param("projectId") Integer projectId,
+            @Param("excludeUserId") Integer excludeUserId,
+            @Param("search") String search,
+            @Param("specializationId") Integer specializationId,
+            Pageable pageable);
 } 

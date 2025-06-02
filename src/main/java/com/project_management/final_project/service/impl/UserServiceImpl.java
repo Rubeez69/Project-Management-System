@@ -4,6 +4,8 @@ import com.project_management.final_project.dto.request.UserFilterRequest;
 import com.project_management.final_project.dto.response.PagedResponse;
 import com.project_management.final_project.dto.response.UserResponse;
 import com.project_management.final_project.entities.User;
+import com.project_management.final_project.exception.AppException;
+import com.project_management.final_project.exception.ErrorCode;
 import com.project_management.final_project.repository.UserRepository;
 import com.project_management.final_project.service.UserService;
 import org.slf4j.Logger;
@@ -73,6 +75,30 @@ public class UserServiceImpl implements UserService {
         } catch (Exception e) {
             logger.error("Error retrieving users for team selection: {}", e.getMessage(), e);
             throw e;
+        }
+    }
+    
+    @Override
+    public boolean hasRole(Integer userId, String roleName) {
+        try {
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND, "User not found with ID: " + userId));
+            
+            if (user.getRole() == null) {
+                logger.warn("User ID {} has no role assigned", userId);
+                return false;
+            }
+            
+            boolean hasRole = user.getRole().getName().equals(roleName);
+            logger.debug("User ID {} {} role {}", userId, hasRole ? "has" : "does not have", roleName);
+            
+            return hasRole;
+        } catch (AppException e) {
+            logger.warn("Error checking role for user ID {}: {}", userId, e.getMessage());
+            return false;
+        } catch (Exception e) {
+            logger.error("Unexpected error checking role for user ID {}: {}", userId, e.getMessage(), e);
+            return false;
         }
     }
 } 
