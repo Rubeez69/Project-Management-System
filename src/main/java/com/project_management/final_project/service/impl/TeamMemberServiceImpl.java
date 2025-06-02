@@ -4,6 +4,7 @@ import com.project_management.final_project.config.SecurityUtil;
 import com.project_management.final_project.dto.request.AddTeamMemberRequest;
 import com.project_management.final_project.dto.request.TeamMemberFilterRequest;
 import com.project_management.final_project.dto.response.TeamMemberResponse;
+import com.project_management.final_project.dto.response.TeamMemberWithWorkloadResponse;
 import com.project_management.final_project.entities.Project;
 import com.project_management.final_project.entities.Specialization;
 import com.project_management.final_project.entities.TeamMember;
@@ -12,6 +13,7 @@ import com.project_management.final_project.exception.AppException;
 import com.project_management.final_project.exception.ErrorCode;
 import com.project_management.final_project.repository.ProjectRepository;
 import com.project_management.final_project.repository.SpecializationRepository;
+import com.project_management.final_project.repository.TaskRepository;
 import com.project_management.final_project.repository.TeamMemberRepository;
 import com.project_management.final_project.repository.UserRepository;
 import com.project_management.final_project.service.TeamMemberService;
@@ -19,12 +21,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class TeamMemberServiceImpl implements TeamMemberService {
@@ -34,6 +38,7 @@ public class TeamMemberServiceImpl implements TeamMemberService {
     private final UserRepository userRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final SpecializationRepository specializationRepository;
+    private final TaskRepository taskRepository;
     private final SecurityUtil securityUtil;
 
     @Autowired
@@ -42,11 +47,13 @@ public class TeamMemberServiceImpl implements TeamMemberService {
             UserRepository userRepository, 
             TeamMemberRepository teamMemberRepository,
             SpecializationRepository specializationRepository,
+            TaskRepository taskRepository,
             SecurityUtil securityUtil) {
         this.projectRepository = projectRepository;
         this.userRepository = userRepository;
         this.teamMemberRepository = teamMemberRepository;
         this.specializationRepository = specializationRepository;
+        this.taskRepository = taskRepository;
         this.securityUtil = securityUtil;
     }
 
@@ -202,6 +209,101 @@ public class TeamMemberServiceImpl implements TeamMemberService {
         } catch (Exception e) {
             logger.error("Error deleting team member ID {}: {}", teamMemberId, e.getMessage(), e);
             throw new AppException(ErrorCode.INTERNAL_ERROR, "Failed to delete team member: " + e.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<TeamMemberWithWorkloadResponse> getProjectTeamMembersWithWorkload(
+            Integer projectId, TeamMemberFilterRequest filterRequest, Pageable pageable) {
+        try {
+            // Get current user ID
+            Integer currentUserId = securityUtil.getCurrentUserId();
+            
+            // Find the project by ID
+            Project project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, "Project not found with ID: " + projectId));
+            
+            // Check if the current user is the creator of the project
+            if (!project.getCreatedBy().getId().equals(currentUserId)) {
+                logger.warn("User ID {} attempted to view members with workload of project ID {} created by user ID {}", 
+                        currentUserId, projectId, project.getCreatedBy().getId());
+                throw new AppException(ErrorCode.UNAUTHORIZED, "You are not authorized to view members of this project");
+            }
+            
+            // Get team members with filters
+            Page<TeamMember> teamMembers = teamMemberRepository.findByProjectIdWithFilters(
+                    projectId,
+                    filterRequest.getSearch(),
+                    filterRequest.getSpecializationId(),
+                    pageable
+            );
+            
+            // Map to response DTOs with workload information
+            List<TeamMemberWithWorkloadResponse> teamMemberResponses = teamMembers.getContent().stream()
+                    .map(teamMember -> {
+                        Integer userId = teamMember.getUser() != null ? teamMember.getUser().getId() : null;
+                        int taskCount = 0;
+                        if (userId != null) {
+                            taskCount = taskRepository.countByAssigneeId(userId);
+                        }
+                        return TeamMemberWithWorkloadResponse.fromEntityWithWorkload(teamMember, taskCount);
+                    })
+                    .collect(Collectors.toList());
+            
+            return new PageImpl<>(teamMemberResponses, pageable, teamMembers.getTotalElements());
+            
+        } catch (AppException e) {
+            throw e;
+        } catch (Exception e) {
+            logger.error("Error retrieving team members with workload for project ID {}: {}", 
+                    projectId, e.getMessage(), e);
+            throw new AppException(ErrorCode.INTERNAL_ERROR, "Failed to retrieve team members with workload");
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<TeamMemberResponse> getMyTeamMembers(Integer projectId, TeamMemberFilterRequest filterRequest, Pageable pageable) {
+        try {
+            // Get current user ID
+            Integer currentUserId = securityUtil.getCurrentUserId();
+            logger.info("Getting team members for project ID {} excluding current user ID {}", projectId, currentUserId);
+            
+            // Find the project by ID
+            Project project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, "Project not found with ID: " + projectId));
+            
+            // Check if the current user is a member of the project
+            boolean isCurrentUserInProject = teamMemberRepository.existsByUserIdAndProjectId(currentUserId, projectId);
+            if (!isCurrentUserInProject) {
+                logger.warn("User ID {} attempted to view team members of project ID {} but is not a member", 
+                        currentUserId, projectId);
+                throw new AppException(ErrorCode.UNAUTHORIZED, "You are not a member of this project");
+            }
+            
+            // Get team members with filters, excluding the current user
+            Page<TeamMember> teamMembers = teamMemberRepository.findByProjectIdExcludingUserWithFilters(
+                    projectId,
+                    currentUserId,
+                    filterRequest.getSearch(),
+                    filterRequest.getSpecializationId(),
+                    pageable
+            );
+            
+            // Map to response DTOs
+            Page<TeamMemberResponse> teamMemberResponses = teamMembers.map(TeamMemberResponse::fromEntity);
+            
+            logger.info("Retrieved {} team members for project ID {} excluding user ID {}", 
+                    teamMembers.getTotalElements(), projectId, currentUserId);
+            
+            return teamMemberResponses;
+            
+        } catch (AppException e) {
+            throw e;
+        } catch (Exception e) {
+            logger.error("Error retrieving team members for project ID {}: {}", projectId, e.getMessage(), e);
+            throw new AppException(ErrorCode.INTERNAL_ERROR, "Failed to retrieve team members");
         }
     }
 } 

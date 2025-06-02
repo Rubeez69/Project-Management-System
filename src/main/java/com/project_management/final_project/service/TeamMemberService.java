@@ -3,6 +3,7 @@ package com.project_management.final_project.service;
 import com.project_management.final_project.dto.request.AddTeamMemberRequest;
 import com.project_management.final_project.dto.request.TeamMemberFilterRequest;
 import com.project_management.final_project.dto.response.TeamMemberResponse;
+import com.project_management.final_project.dto.response.TeamMemberWithWorkloadResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -28,9 +29,27 @@ public interface TeamMemberService {
     Page<TeamMemberResponse> getProjectTeamMembers(Integer projectId, TeamMemberFilterRequest filterRequest, Pageable pageable);
     
     /**
+     * Get team members for a project with workload information and filtering
+     * @param projectId The ID of the project to get members for
+     * @param filterRequest Filter criteria including search term and specialization ID
+     * @param pageable Pagination information
+     * @return Page of team member responses with workload information
+     */
+    Page<TeamMemberWithWorkloadResponse> getProjectTeamMembersWithWorkload(Integer projectId, TeamMemberFilterRequest filterRequest, Pageable pageable);
+    
+    /**
      * Delete a team member from a project
      * @param teamMemberId The ID of the team member to delete
-     * @return true if the team member was deleted successfully, false otherwise
+     * @return true if the team member was deleted, false otherwise
      */
     boolean deleteTeamMember(Integer teamMemberId);
+    
+    /**
+     * Get team members for a project excluding the current user (for developers)
+     * @param projectId The ID of the project to get members for
+     * @param filterRequest Filter criteria including search term and specialization ID
+     * @param pageable Pagination information
+     * @return Page of team member responses
+     */
+    Page<TeamMemberResponse> getMyTeamMembers(Integer projectId, TeamMemberFilterRequest filterRequest, Pageable pageable);
 } 

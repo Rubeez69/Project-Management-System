@@ -7,6 +7,7 @@ import com.project_management.final_project.dto.response.PagedResponse;
 import com.project_management.final_project.dto.response.ProjectDetailResponse;
 import com.project_management.final_project.dto.response.ProjectDropdownResponse;
 import com.project_management.final_project.dto.response.ProjectResponse;
+import com.project_management.final_project.entities.Project;
 
 public interface ProjectService {
     /**
@@ -46,11 +47,27 @@ public interface ProjectService {
     ProjectDetailResponse getProjectDetail(Integer id);
     
     /**
-     * Get projects for dropdown with minimal information (id and name only)
-     * @param search Optional search term for project name
-     * @param page Page number (zero-based)
-     * @param size Page size
-     * @return A paged response of projects with minimal information
+     * Get projects where the current user is a team member with filtering
+     * @param filterRequest The filter request containing search, filter and pagination parameters
+     * @return A paged response of projects
      */
-    PagedResponse<ProjectDropdownResponse> getProjectsForDropdown(String search, int page, int size);
+    PagedResponse<ProjectResponse> getMyProjects(ProjectFilterRequest filterRequest);
+    
+    /**
+     * Get projects for dropdown selection
+     * @param search Optional search term
+     * @param page Page number
+     * @param size Page size
+     * @return A paged response of project dropdown items
+     */
+    PagedResponse<ProjectDropdownResponse> getProjectsForDropdown(String search, Integer page, Integer size);
+    
+    /**
+     * Get projects where the current user is a team member for dropdown selection
+     * @param search Optional search term
+     * @param page Page number
+     * @param size Page size
+     * @return A paged response of project dropdown items
+     */
+    PagedResponse<ProjectDropdownResponse> getMyProjectsForDropdown(String search, Integer page, Integer size);
 } 

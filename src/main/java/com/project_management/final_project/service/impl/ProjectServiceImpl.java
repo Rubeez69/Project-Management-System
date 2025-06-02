@@ -221,7 +221,7 @@ public class ProjectServiceImpl implements ProjectService {
     }
     
     @Override
-    public PagedResponse<ProjectDropdownResponse> getProjectsForDropdown(String search, int page, int size) {
+    public PagedResponse<ProjectDropdownResponse> getProjectsForDropdown(String search, Integer page, Integer size) {
         try {
             // Get current user ID
             Integer currentUserId = securityUtil.getCurrentUserId();
@@ -245,6 +245,78 @@ public class ProjectServiceImpl implements ProjectService {
             return PagedResponse.fromPage(projectDropdownPage);
         } catch (Exception e) {
             logger.error("Error retrieving projects for dropdown: {}", e.getMessage(), e);
+            throw new AppException(ErrorCode.INTERNAL_ERROR, "Failed to retrieve projects for dropdown");
+        }
+    }
+
+    @Override
+    public PagedResponse<ProjectResponse> getMyProjects(ProjectFilterRequest filterRequest) {
+        try {
+            // Get current user ID
+            Integer currentUserId = securityUtil.getCurrentUserId();
+            
+            logger.info("Getting projects for team member with user ID: {}", currentUserId);
+            
+            // Create pageable with sorting
+            Sort.Direction direction = Sort.Direction.fromString(
+                    filterRequest.getSortDirection().equalsIgnoreCase("asc") ? "asc" : "desc"
+            );
+            
+            Pageable pageable = PageRequest.of(
+                    filterRequest.getPage(),
+                    filterRequest.getSize(),
+                    Sort.by(direction, filterRequest.getSortBy())
+            );
+            
+            // Query projects where the user is a team member with filters
+            Page<Project> projectsPage = projectRepository.findProjectsByTeamMemberUserIdWithFilters(
+                    currentUserId,
+                    filterRequest.getName(),
+                    filterRequest.getStatus(),
+                    pageable
+            );
+            
+            // Map to response DTOs
+            Page<ProjectResponse> projectResponsePage = projectsPage.map(ProjectResponse::fromEntity);
+            
+            logger.info("Retrieved {} projects where user ID {} is a team member", 
+                    projectsPage.getTotalElements(), currentUserId);
+            
+            return PagedResponse.fromPage(projectResponsePage);
+        } catch (Exception e) {
+            logger.error("Error retrieving projects for team member with user ID {}: {}", 
+                    securityUtil.getCurrentUserId(), e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    @Override
+    public PagedResponse<ProjectDropdownResponse> getMyProjectsForDropdown(String search, Integer page, Integer size) {
+        try {
+            // Get current user ID
+            Integer currentUserId = securityUtil.getCurrentUserId();
+            
+            // Create pageable with sorting by name
+            Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "name"));
+            
+            // Query projects where the user is a team member with name filter
+            Page<Project> projectsPage = projectRepository.findProjectsByTeamMemberUserIdWithFilters(
+                    currentUserId,
+                    search, // Only filter by name
+                    null,   // No status filter
+                    pageable
+            );
+            
+            // Map to dropdown response DTOs
+            Page<ProjectDropdownResponse> projectDropdownPage = projectsPage.map(ProjectDropdownResponse::fromEntity);
+            
+            logger.info("Retrieved {} projects for dropdown where user ID {} is a team member", 
+                    projectsPage.getTotalElements(), currentUserId);
+            
+            return PagedResponse.fromPage(projectDropdownPage);
+        } catch (Exception e) {
+            logger.error("Error retrieving projects for dropdown where user ID {} is a team member: {}", 
+                    securityUtil.getCurrentUserId(), e.getMessage(), e);
             throw new AppException(ErrorCode.INTERNAL_ERROR, "Failed to retrieve projects for dropdown");
         }
     }

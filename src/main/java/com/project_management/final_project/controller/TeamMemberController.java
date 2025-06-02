@@ -5,6 +5,7 @@ import com.project_management.final_project.dto.request.TeamMemberFilterRequest;
 import com.project_management.final_project.dto.response.ApiResponse;
 import com.project_management.final_project.dto.response.PageResponse;
 import com.project_management.final_project.dto.response.TeamMemberResponse;
+import com.project_management.final_project.dto.response.TeamMemberWithWorkloadResponse;
 import com.project_management.final_project.exception.AppException;
 import com.project_management.final_project.exception.ErrorCode;
 import com.project_management.final_project.service.TeamMemberService;
@@ -64,6 +65,25 @@ public class TeamMemberController {
         return ApiResponseUtil.success(PaginationUtil.createPageResponse(teamMembers));
     }
     
+    @GetMapping("/projects/{projectId}/members-with-workload")
+    @PreAuthorize("hasRole('PROJECT_MANAGER') and hasAuthority('TEAM_VIEW')")
+    public ApiResponse<PageResponse<TeamMemberWithWorkloadResponse>> getProjectTeamMembersWithWorkload(
+            @PathVariable Integer projectId,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Integer specializationId,
+            @PageableDefault(size = 5, sort = "user.name", direction = Sort.Direction.ASC) Pageable pageable) {
+        
+        TeamMemberFilterRequest filterRequest = TeamMemberFilterRequest.builder()
+                .search(search)
+                .specializationId(specializationId)
+                .build();
+        
+        Page<TeamMemberWithWorkloadResponse> teamMembers = teamMemberService.getProjectTeamMembersWithWorkload(
+                projectId, filterRequest, pageable);
+        
+        return ApiResponseUtil.success(PaginationUtil.createPageResponse(teamMembers));
+    }
+    
     @DeleteMapping("/{teamMemberId}")
     @PreAuthorize("hasRole('PROJECT_MANAGER') and hasAuthority('TEAM_DELETE')")
     public ApiResponse<Map<String, Object>> deleteTeamMember(@PathVariable Integer teamMemberId) {
@@ -89,5 +109,35 @@ public class TeamMemberController {
             logger.error("Unexpected error while deleting team member ID {}: {}", teamMemberId, e.getMessage(), e);
             throw new AppException(ErrorCode.INTERNAL_ERROR, "Failed to delete team member: " + e.getMessage());
         }
+    }
+    
+    /**
+     * Get team members for a project excluding the current user (for developers)
+     *
+     * @param projectId The ID of the project
+     * @param search Optional search term for user name or email
+     * @param specializationId Optional specialization ID filter
+     * @param pageable Pagination information
+     * @return Page of team members
+     */
+    @GetMapping("/projects/{projectId}/my-team")
+    @PreAuthorize("hasRole('DEVELOPER') and hasAuthority('TEAM_VIEW')")
+    public ApiResponse<PageResponse<TeamMemberResponse>> getMyTeamMembers(
+            @PathVariable Integer projectId,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Integer specializationId,
+            @PageableDefault(size = 5, sort = "user.name", direction = Sort.Direction.ASC) Pageable pageable) {
+        
+        logger.info("Getting team members for project ID {} excluding current user", projectId);
+        
+        TeamMemberFilterRequest filterRequest = TeamMemberFilterRequest.builder()
+                .search(search)
+                .specializationId(specializationId)
+                .build();
+        
+        Page<TeamMemberResponse> teamMembers = teamMemberService.getMyTeamMembers(
+                projectId, filterRequest, pageable);
+        
+        return ApiResponseUtil.success(PaginationUtil.createPageResponse(teamMembers));
     }
 } 
