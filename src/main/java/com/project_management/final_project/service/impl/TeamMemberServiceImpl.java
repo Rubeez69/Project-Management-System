@@ -7,6 +7,7 @@ import com.project_management.final_project.dto.response.TeamMemberResponse;
 import com.project_management.final_project.dto.response.TeamMemberWithWorkloadResponse;
 import com.project_management.final_project.entities.Project;
 import com.project_management.final_project.entities.Specialization;
+import com.project_management.final_project.entities.Task;
 import com.project_management.final_project.entities.TeamMember;
 import com.project_management.final_project.entities.User;
 import com.project_management.final_project.exception.AppException;
@@ -16,6 +17,7 @@ import com.project_management.final_project.repository.SpecializationRepository;
 import com.project_management.final_project.repository.TaskRepository;
 import com.project_management.final_project.repository.TeamMemberRepository;
 import com.project_management.final_project.repository.UserRepository;
+import com.project_management.final_project.service.TaskHistoryService;
 import com.project_management.final_project.service.TeamMemberService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,7 +29,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -39,6 +43,7 @@ public class TeamMemberServiceImpl implements TeamMemberService {
     private final TeamMemberRepository teamMemberRepository;
     private final SpecializationRepository specializationRepository;
     private final TaskRepository taskRepository;
+    private final TaskHistoryService taskHistoryService;
     private final SecurityUtil securityUtil;
 
     @Autowired
@@ -48,12 +53,14 @@ public class TeamMemberServiceImpl implements TeamMemberService {
             TeamMemberRepository teamMemberRepository,
             SpecializationRepository specializationRepository,
             TaskRepository taskRepository,
+            TaskHistoryService taskHistoryService,
             SecurityUtil securityUtil) {
         this.projectRepository = projectRepository;
         this.userRepository = userRepository;
         this.teamMemberRepository = teamMemberRepository;
         this.specializationRepository = specializationRepository;
         this.taskRepository = taskRepository;
+        this.taskHistoryService = taskHistoryService;
         this.securityUtil = securityUtil;
     }
 
@@ -75,6 +82,21 @@ public class TeamMemberServiceImpl implements TeamMemberService {
                 throw new AppException(ErrorCode.UNAUTHORIZED, "You are not authorized to add members to this project");
             }
             
+            // First, check if any of the users are already members of the project
+            for (AddTeamMemberRequest request : requests) {
+                boolean isAlreadyMember = teamMemberRepository.existsByUserIdAndProjectId(
+                        request.getUserId(), projectId);
+                
+                if (isAlreadyMember) {
+                    User user = userRepository.findById(request.getUserId()).orElse(null);
+                    String userName = user != null ? user.getName() : "Unknown";
+                    logger.warn("User ID {} ({}) is already a member of project ID {}", 
+                            request.getUserId(), userName, projectId);
+                    throw new AppException(ErrorCode.DUPLICATE_ENTITY, 
+                            "User " + userName + " is already a member of this project");
+                }
+            }
+            
             List<TeamMember> teamMembersToAdd = new ArrayList<>();
             
             for (AddTeamMemberRequest request : requests) {
@@ -87,16 +109,6 @@ public class TeamMemberServiceImpl implements TeamMemberService {
                 Specialization specialization = specializationRepository.findById(request.getSpecializationId())
                         .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, 
                                 "Specialization not found with ID: " + request.getSpecializationId()));
-                
-                // Check if user is already a member of the project
-                boolean isAlreadyMember = teamMemberRepository.existsByUserIdAndProjectId(
-                        request.getUserId(), projectId);
-                
-                if (isAlreadyMember) {
-                    logger.warn("User ID {} is already a member of project ID {}", 
-                            request.getUserId(), projectId);
-                    continue; // Skip this user and continue with the next
-                }
                 
                 // Create new team member
                 TeamMember teamMember = TeamMember.builder()
@@ -195,6 +207,34 @@ public class TeamMemberServiceImpl implements TeamMemberService {
                         currentUserId, teamMemberId, project.getId(), projectCreator.getId());
                 throw new AppException(ErrorCode.UNAUTHORIZED, "You are not authorized to remove members from this project");
             }
+            
+            // Get the user ID of the team member
+            Integer userId = teamMember.getUser().getId();
+            Integer projectId = project.getId();
+            
+            // Find all tasks assigned to this team member in this project
+            List<Task> assignedTasks = taskRepository.findByAssigneeIdAndProjectId(userId, projectId);
+            
+            // Get current user as the one who made the changes
+            User currentUser = userRepository.findById(currentUserId)
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+            
+            // Create task history records for all tasks that will be unassigned
+            if (!assignedTasks.isEmpty()) {
+                // Create task history records
+                int historyRecordsCreated = taskHistoryService.createTaskStatusHistoryForTeamMemberRemoval(
+                        assignedTasks, 
+                        Task.Status.UNASSIGNED, 
+                        currentUser);
+                
+                logger.info("Created {} task history records for tasks being unassigned", historyRecordsCreated);
+            }
+            
+            // Unassign all tasks assigned to this team member in this project
+            int unassignedTasksCount = taskRepository.unassignTasksForTeamMember(userId, projectId);
+            
+            logger.info("Unassigned {} tasks from team member ID {} (user ID {}) in project ID {}", 
+                    unassignedTasksCount, teamMemberId, userId, projectId);
             
             // Delete the team member
             teamMemberRepository.delete(teamMember);

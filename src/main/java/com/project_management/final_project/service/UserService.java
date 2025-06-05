@@ -8,10 +8,12 @@ public interface UserService {
     
     /**
      * Get users for team member selection (project managers and developers)
+     * who are not already members of the specified project
+     * @param projectId The project ID to filter by
      * @param filterRequest Filter parameters including search term and pagination
      * @return Paged response of users
      */
-    PagedResponse<UserResponse> getUsersForTeamSelection(UserFilterRequest filterRequest);
+    PagedResponse<UserResponse> getUsersForTeamSelection(Integer projectId, UserFilterRequest filterRequest);
     
     /**
      * Check if a user has a specific role

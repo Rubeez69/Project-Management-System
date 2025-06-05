@@ -32,11 +32,6 @@ public class TeamMember {
     @JoinColumn(name = "specialization_id")
     private Specialization specialization;
 
-    @Column(name = "added_at", updatable = false)
+    @Column(name = "added_at", updatable = false, insertable = false)
     private LocalDateTime addedAt;
-
-    @PrePersist
-    public void onCreate() {
-        this.addedAt = LocalDateTime.now();
-    }
 } 

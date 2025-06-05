@@ -27,6 +27,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -95,6 +96,25 @@ public class ProjectServiceImpl implements ProjectService {
             // Get current user ID
             Integer currentUserId = securityUtil.getCurrentUserId();
             
+            // Validate required fields
+            if (request.getName() == null || request.getName().trim().isEmpty() || request.getStartDate() == null) {
+                logger.warn("Attempt to create project with missing required fields by user ID {}", currentUserId);
+                throw new AppException(ErrorCode.INVALID_REQUEST, "Please fill in all required fields.");
+            }
+            
+            // Validate start date and end date
+            if (request.getEndDate() != null && request.getStartDate().isAfter(request.getEndDate())) {
+                logger.warn("Attempt to create project with start date after end date by user ID {}", currentUserId);
+                throw new AppException(ErrorCode.INVALID_REQUEST, "Start date cannot be after end date.");
+            }
+            
+            // Check for duplicate project name
+            if (projectRepository.existsByNameAndCreatedById(request.getName(), currentUserId)) {
+                logger.warn("Attempt to create project with duplicate name '{}' by user ID {}", 
+                        request.getName(), currentUserId);
+                throw new AppException(ErrorCode.DUPLICATE_ENTITY, "Project name already exists, please choose a different name.");
+            }
+            
             // Get user entity
             User currentUser = userRepository.findById(currentUserId)
                     .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
@@ -117,9 +137,12 @@ public class ProjectServiceImpl implements ProjectService {
             logger.info("Created new project with ID {} by user ID {}", savedProject.getId(), currentUserId);
             
             return ProjectResponse.fromEntity(savedProject);
+        } catch (AppException e) {
+            // Rethrow application exceptions as they already have appropriate error codes
+            throw e;
         } catch (Exception e) {
             logger.error("Error creating project: {}", e.getMessage(), e);
-            throw e;
+            throw new AppException(ErrorCode.INTERNAL_ERROR, "Cannot create project. Please try again later.");
         }
     }
     
@@ -138,6 +161,25 @@ public class ProjectServiceImpl implements ProjectService {
                 logger.warn("User ID {} attempted to update project ID {} created by user ID {}", 
                         currentUserId, id, project.getCreatedBy().getId());
                 throw new AppException(ErrorCode.UNAUTHORIZED, "You are not authorized to update this project");
+            }
+            
+            // Check for duplicate project name if name is being updated
+            if (request.getName() != null && !request.getName().equals(project.getName())) {
+                if (projectRepository.existsByNameAndCreatedById(request.getName(), currentUserId)) {
+                    logger.warn("Attempt to update project with duplicate name '{}' by user ID {}", 
+                            request.getName(), currentUserId);
+                    throw new AppException(ErrorCode.DUPLICATE_ENTITY, "Project name already exists, please choose a different name.");
+                }
+            }
+            
+            // Prepare dates for validation
+            LocalDate startDate = (request.getStartDate() != null) ? request.getStartDate() : project.getStartDate();
+            LocalDate endDate = (request.getEndDate() != null) ? request.getEndDate() : project.getEndDate();
+            
+            // Validate start date and end date if both are present
+            if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
+                logger.warn("Attempt to update project with start date after end date by user ID {}", currentUserId);
+                throw new AppException(ErrorCode.INVALID_REQUEST, "Start date cannot be after end date.");
             }
             
             // Update only the fields that are not null

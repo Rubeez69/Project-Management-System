@@ -15,6 +15,8 @@ import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -89,18 +91,32 @@ public class ProjectController {
     
     @PostMapping
     @PreAuthorize("hasRole('PROJECT_MANAGER') and hasAuthority('PROJECT_CREATE')")
-    public ApiResponse<ProjectResponse> createProject(@Valid @RequestBody CreateProjectRequest request) {
+    public ResponseEntity<ApiResponse<ProjectResponse>> createProject(@Valid @RequestBody CreateProjectRequest request) {
         ProjectResponse createdProject = projectService.createProject(request);
-        return ApiResponseUtil.success(createdProject);
+        
+        ApiResponse<ProjectResponse> response = ApiResponse.<ProjectResponse>builder()
+                .code(HttpStatus.CREATED.value())
+                .message("Project created successfully")
+                .result(createdProject)
+                .build();
+        
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
     
     @PatchMapping("/{id}")
     @PreAuthorize("hasRole('PROJECT_MANAGER') and hasAuthority('PROJECT_UPDATE')")
-    public ApiResponse<ProjectResponse> updateProject(
+    public ResponseEntity<ApiResponse<ProjectResponse>> updateProject(
             @PathVariable Integer id,
             @RequestBody UpdateProjectRequest request) {
         ProjectResponse updatedProject = projectService.updateProject(id, request);
-        return ApiResponseUtil.success(updatedProject);
+        
+        ApiResponse<ProjectResponse> response = ApiResponse.<ProjectResponse>builder()
+                .code(HttpStatus.OK.value())
+                .message("Project updated successfully")
+                .result(updatedProject)
+                .build();
+        
+        return ResponseEntity.ok(response);
     }
     
     /**

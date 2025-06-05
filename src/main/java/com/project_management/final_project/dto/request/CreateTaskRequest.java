@@ -17,14 +17,15 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class CreateTaskRequest {
     
-    @NotBlank(message = "Title is required")
-    @Size(max = 255, message = "Title must be less than 255 characters")
+    @NotBlank(message = "Please fill in all required fields.")
+    @Size(max = 255, message = "Task name cannot exceed 255 characters.")
     private String title;
     
     private String description;
     
     private Task.Priority priority;
     
+    @NotNull(message = "Please fill in all required fields.")
     private LocalDate startDate;
     
     private LocalDate dueDate;

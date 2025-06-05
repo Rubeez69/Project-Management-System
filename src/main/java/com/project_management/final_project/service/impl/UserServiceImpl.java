@@ -6,6 +6,7 @@ import com.project_management.final_project.dto.response.UserResponse;
 import com.project_management.final_project.entities.User;
 import com.project_management.final_project.exception.AppException;
 import com.project_management.final_project.exception.ErrorCode;
+import com.project_management.final_project.repository.TeamMemberRepository;
 import com.project_management.final_project.repository.UserRepository;
 import com.project_management.final_project.service.UserService;
 import org.slf4j.Logger;
@@ -27,18 +28,20 @@ public class UserServiceImpl implements UserService {
 
     private static final Logger logger = LoggerFactory.getLogger(UserServiceImpl.class);
     private final UserRepository userRepository;
+    private final TeamMemberRepository teamMemberRepository;
     
     // Roles to include and exclude
     private static final List<String> INCLUDED_ROLES = Arrays.asList("PROJECT_MANAGER", "DEVELOPER");
     private static final List<String> EXCLUDED_ROLES = Collections.singletonList("ADMIN");
 
     @Autowired
-    public UserServiceImpl(UserRepository userRepository) {
+    public UserServiceImpl(UserRepository userRepository, TeamMemberRepository teamMemberRepository) {
         this.userRepository = userRepository;
+        this.teamMemberRepository = teamMemberRepository;
     }
 
     @Override
-    public PagedResponse<UserResponse> getUsersForTeamSelection(UserFilterRequest filterRequest) {
+    public PagedResponse<UserResponse> getUsersForTeamSelection(Integer projectId, UserFilterRequest filterRequest) {
         try {
             // Set default values if not provided
             int page = filterRequest.getPage() != null ? filterRequest.getPage() : 0;
@@ -58,22 +61,25 @@ public class UserServiceImpl implements UserService {
                     ? filterRequest.getRoles() 
                     : INCLUDED_ROLES;
             
-            // Query users with filters
-            Page<User> usersPage = userRepository.findByRolesAndSearchTerm(
+            // Query users with filters and exclude those who are already team members of the project
+            Page<User> usersPage = userRepository.findByRolesAndSearchTermNotInProject(
                     rolesToInclude,
                     EXCLUDED_ROLES,
                     filterRequest.getSearch(),
+                    projectId,
                     pageable
             );
             
             // Map to response DTOs
             Page<UserResponse> userResponsePage = usersPage.map(UserResponse::fromEntity);
             
-            logger.info("Retrieved {} users for team selection", usersPage.getTotalElements());
+            logger.info("Retrieved {} users for team selection for project ID: {}", 
+                    usersPage.getTotalElements(), projectId);
             
             return PagedResponse.fromPage(userResponsePage);
         } catch (Exception e) {
-            logger.error("Error retrieving users for team selection: {}", e.getMessage(), e);
+            logger.error("Error retrieving users for team selection for project ID {}: {}", 
+                    projectId, e.getMessage(), e);
             throw e;
         }
     }

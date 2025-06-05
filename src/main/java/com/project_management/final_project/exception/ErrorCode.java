@@ -10,6 +10,8 @@ public enum ErrorCode {
     PASSWORD_NOT_MATCH(HttpStatus.BAD_REQUEST, "Passwords do not match"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error"),
     INVALID_KEY(HttpStatus.BAD_REQUEST, "Uncategorized error"),
+    INVALID_REQUEST(HttpStatus.BAD_REQUEST, "Invalid request"),
+    DUPLICATE_ENTITY(HttpStatus.CONFLICT, "Entity already exists"),
     TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "Token has expired"),
     TOKEN_SIGNATURE_INVALID(HttpStatus.UNAUTHORIZED, "Token signature is invalid"),
     TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "Token is invalid"),

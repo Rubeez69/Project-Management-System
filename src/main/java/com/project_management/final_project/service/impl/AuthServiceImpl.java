@@ -72,6 +72,7 @@ public class AuthServiceImpl implements AuthService {
             return Jwts.builder()
                     .claims()
                     .add("id", user.getId())
+                    .add("name", user.getName())
                     .add("email", user.getEmail())
                     .add("role", user.getRole().getName())
                     .add("permissions", user.getRole().getPermissions().stream()

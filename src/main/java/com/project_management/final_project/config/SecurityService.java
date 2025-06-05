@@ -4,6 +4,7 @@ import com.project_management.final_project.entities.Project;
 import com.project_management.final_project.exception.AppException;
 import com.project_management.final_project.exception.ErrorCode;
 import com.project_management.final_project.repository.ProjectRepository;
+import com.project_management.final_project.repository.TaskRepository;
 import com.project_management.final_project.repository.TeamMemberRepository;
 import com.project_management.final_project.service.UserService;
 import org.slf4j.Logger;
@@ -20,6 +21,7 @@ public class SecurityService {
     private final SecurityUtil securityUtil;
     private final TeamMemberRepository teamMemberRepository;
     private final ProjectRepository projectRepository;
+    private final TaskRepository taskRepository;
     private final UserService userService;
     
     @Autowired
@@ -27,10 +29,12 @@ public class SecurityService {
             SecurityUtil securityUtil,
             TeamMemberRepository teamMemberRepository,
             ProjectRepository projectRepository,
+            TaskRepository taskRepository,
             UserService userService) {
         this.securityUtil = securityUtil;
         this.teamMemberRepository = teamMemberRepository;
         this.projectRepository = projectRepository;
+        this.taskRepository = taskRepository;
         this.userService = userService;
     }
     
@@ -102,5 +106,37 @@ public class SecurityService {
                 currentUserId, canView ? "can" : "cannot", userId, projectId);
         
         return canView;
+    }
+    
+    /**
+     * Check if the current user can update the status of a task
+     * 
+     * @param taskId The task ID
+     * @param projectId The project ID
+     * @return true if the current user can update the task status, false otherwise
+     */
+    public boolean canUpdateTaskStatus(Integer taskId, Integer projectId) {
+        Integer currentUserId = securityUtil.getCurrentUserId();
+        
+        logger.info("Checking authorization: current user ID {} requesting to update status of task ID {} in project ID {}", 
+                currentUserId, taskId, projectId);
+        
+        // Check if the user is a project manager
+        if (userService.hasRole(currentUserId, "PROJECT_MANAGER")) {
+            // Project managers can update if they are the project creator
+            boolean isAuthorized = taskRepository.existsByIdAndProjectIdAndProject_CreatedBy_Id(taskId, projectId, currentUserId);
+            logger.info("Project manager authorization check for task update: {}", isAuthorized);
+            return isAuthorized;
+        }
+        
+        // Developers can update if they are the task assignee
+        if (userService.hasRole(currentUserId, "DEVELOPER")) {
+            boolean isAuthorized = taskRepository.existsByIdAndProjectIdAndAssigneeId(taskId, projectId, currentUserId);
+            logger.info("Developer authorization check for task update: {}", isAuthorized);
+            return isAuthorized;
+        }
+        
+        logger.warn("User ID {} with unknown role attempted to update task ID {}", currentUserId, taskId);
+        return false;
     }
 } 

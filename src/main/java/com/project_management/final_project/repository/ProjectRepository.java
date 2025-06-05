@@ -23,6 +23,14 @@ public interface ProjectRepository extends JpaRepository<Project, Integer> {
     Page<Project> findByCreatedById(Integer createdById, Pageable pageable);
     
     /**
+     * Check if a project with the given name exists for a specific user
+     * @param name The project name to check
+     * @param createdById The ID of the user who created the project
+     * @return True if a project with the same name exists for the user, false otherwise
+     */
+    boolean existsByNameAndCreatedById(String name, Integer createdById);
+    
+    /**
      * Find projects where a specific user is a team member
      * @param userId The user ID
      * @param pageable Pagination information
