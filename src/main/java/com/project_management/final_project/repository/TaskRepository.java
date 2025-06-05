@@ -176,4 +176,20 @@ public interface TaskRepository extends JpaRepository<Task, Integer> {
      * @return true if a task with the same title exists in the project, false otherwise
      */
     boolean existsByTitleAndProjectId(String title, Integer projectId);
+    
+    /**
+     * Check if a task with the same title already exists in a project (excluding a specific task)
+     * @param title The task title
+     * @param projectId The project ID
+     * @param taskId The ID of the task to exclude
+     * @return true if a task with the same title exists in the project (excluding the specified task), false otherwise
+     */
+    boolean existsByTitleAndProjectIdAndIdNot(String title, Integer projectId, Integer taskId);
+    
+    /**
+     * Find all tasks in a project ordered by updated at timestamp in descending order
+     * @param projectId The project ID
+     * @return List of tasks
+     */
+    List<Task> findAllByProjectIdOrderByUpdatedAtDesc(Integer projectId);
 } 

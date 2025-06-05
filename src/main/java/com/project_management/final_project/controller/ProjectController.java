@@ -105,15 +105,16 @@ public class ProjectController {
     
     @PatchMapping("/{id}")
     @PreAuthorize("hasRole('PROJECT_MANAGER') and hasAuthority('PROJECT_UPDATE')")
-    public ResponseEntity<ApiResponse<ProjectResponse>> updateProject(
+    public ResponseEntity<ApiResponse<PagedResponse<ProjectResponse>>> updateProject(
             @PathVariable Integer id,
             @RequestBody UpdateProjectRequest request) {
-        ProjectResponse updatedProject = projectService.updateProject(id, request);
         
-        ApiResponse<ProjectResponse> response = ApiResponse.<ProjectResponse>builder()
+        PagedResponse<ProjectResponse> updatedProjectsList = projectService.updateProjectAndReturnAll(id, request);
+        
+        ApiResponse<PagedResponse<ProjectResponse>> response = ApiResponse.<PagedResponse<ProjectResponse>>builder()
                 .code(HttpStatus.OK.value())
                 .message("Project updated successfully")
-                .result(updatedProject)
+                .result(updatedProjectsList)
                 .build();
         
         return ResponseEntity.ok(response);

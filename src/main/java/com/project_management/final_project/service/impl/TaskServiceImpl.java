@@ -4,6 +4,7 @@ import com.project_management.final_project.config.SecurityUtil;
 import com.project_management.final_project.dto.request.AssignTaskRequest;
 import com.project_management.final_project.dto.request.CreateTaskRequest;
 import com.project_management.final_project.dto.request.UnassignedTaskFilterRequest;
+import com.project_management.final_project.dto.request.UpdateTaskRequest;
 import com.project_management.final_project.dto.request.UpdateTaskStatusRequest;
 import com.project_management.final_project.dto.request.ProjectTaskFilterRequest;
 import com.project_management.final_project.dto.response.AssignedTaskResponse;
@@ -12,6 +13,7 @@ import com.project_management.final_project.dto.response.UnassignedTaskResponse;
 import com.project_management.final_project.dto.response.UpcomingDueTaskResponse;
 import com.project_management.final_project.dto.response.PagedResponse;
 import com.project_management.final_project.dto.response.ProjectTaskResponse;
+import com.project_management.final_project.dto.response.TaskDetailResponse;
 import com.project_management.final_project.entities.Project;
 import com.project_management.final_project.entities.Task;
 import com.project_management.final_project.entities.User;
@@ -491,6 +493,158 @@ public class TaskServiceImpl implements TaskService {
         } catch (Exception e) {
             logger.error("Unexpected error retrieving tasks for project ID {}: {}", projectId, e.getMessage(), e);
             throw new AppException(ErrorCode.INTERNAL_ERROR, "Error retrieving tasks: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public TaskDetailResponse getTaskById(Integer taskId) {
+        try {
+            logger.info("Getting detailed information for task ID: {}", taskId);
+            
+            // Find the task by ID
+            Task task = taskRepository.findById(taskId)
+                    .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, "Task not found with ID: " + taskId));
+            
+            logger.info("Retrieved task with ID: {}", taskId);
+            
+            return TaskDetailResponse.fromEntity(task);
+        } catch (AppException e) {
+            throw e;
+        } catch (Exception e) {
+            logger.error("Error retrieving task with ID {}: {}", taskId, e.getMessage(), e);
+            throw new AppException(ErrorCode.INTERNAL_ERROR, "Failed to retrieve task details");
+        }
+    }
+
+    @Override
+    @Transactional
+    public List<ProjectTaskResponse> updateTask(Integer taskId, Integer projectId, UpdateTaskRequest request) {
+        try {
+            logger.info("Updating task ID {} in project ID {}", taskId, projectId);
+            
+            // Get current user ID
+            Integer currentUserId = securityUtil.getCurrentUserId();
+            
+            // Find the task by ID
+            Task task = taskRepository.findById(taskId)
+                    .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, "Task not found with ID: " + taskId));
+            
+            // Verify task belongs to the specified project
+            if (!task.getProject().getId().equals(projectId)) {
+                logger.warn("Task ID {} does not belong to project ID {}", taskId, projectId);
+                throw new AppException(ErrorCode.INVALID_KEY, "Task does not belong to the specified project");
+            }
+            
+            // Get the project associated with the task
+            Project project = task.getProject();
+            
+            // Check if the current user is the creator of the project
+            if (!project.getCreatedBy().getId().equals(currentUserId)) {
+                logger.warn("User ID {} attempted to update task ID {} in project ID {} created by user ID {}", 
+                        currentUserId, taskId, projectId, project.getCreatedBy().getId());
+                throw new AppException(ErrorCode.UNAUTHORIZED, "You are not authorized to update tasks in this project");
+            }
+            
+            // Check if a task with the same title already exists in this project (excluding the current task)
+            if (!task.getTitle().equals(request.getTitle()) && 
+                    taskRepository.existsByTitleAndProjectIdAndIdNot(request.getTitle(), projectId, taskId)) {
+                logger.warn("User ID {} attempted to update task ID {} with duplicate title '{}' in project ID {}", 
+                        currentUserId, taskId, request.getTitle(), projectId);
+                throw new AppException(ErrorCode.DUPLICATE_ENTITY, "Task with this title already exists in the project");
+            }
+            
+            // Validate start date and due date
+            if (request.getStartDate() != null && request.getDueDate() != null) {
+                if (request.getStartDate().isAfter(request.getDueDate())) {
+                    logger.warn("User ID {} attempted to update task ID {} with start date after due date in project ID {}", 
+                            currentUserId, taskId, projectId);
+                    throw new AppException(ErrorCode.INVALID_REQUEST, "Start date cannot be after due date");
+                }
+            }
+            
+            // Store old status for comparison
+            Task.Status oldStatus = task.getStatus();
+            Task.Status newStatus = request.getStatus();
+            
+            // Handle assignee changes
+            User assignee = task.getAssignee();
+            if (request.getAssigneeId() != null) {
+                // Check if user exists
+                assignee = userRepository.findById(request.getAssigneeId())
+                        .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND, 
+                                "User not found with ID: " + request.getAssigneeId()));
+                
+                // Check if the assignee is a member of the project
+                boolean isMember = teamMemberRepository.existsByUserIdAndProjectId(
+                        request.getAssigneeId(), projectId);
+                
+                if (!isMember) {
+                    logger.warn("User ID {} attempted to assign task to non-member user ID {} in project ID {}", 
+                            currentUserId, request.getAssigneeId(), projectId);
+                    throw new AppException(ErrorCode.UNAUTHORIZED, 
+                            "Cannot assign task to a user who is not a member of the project");
+                }
+                
+                // If task was previously UNASSIGNED and now has an assignee, set status to TODO
+                if (task.getStatus() == Task.Status.UNASSIGNED) {
+                    logger.info("Task ID {} was UNASSIGNED and is now being assigned. Setting status to TODO", taskId);
+                    task.setStatus(Task.Status.TODO);
+                    // Update newStatus to reflect this change for history tracking
+                    newStatus = Task.Status.TODO;
+                }
+            } else if (newStatus != null && newStatus == Task.Status.UNASSIGNED) {
+                // If status is being set to UNASSIGNED, remove assignee
+                assignee = null;
+            }
+            
+            // Check if trying to set status to UNASSIGNED when current status is not ARCHIVED
+            if (newStatus != null && newStatus == Task.Status.UNASSIGNED && 
+                    oldStatus != Task.Status.ARCHIVED && oldStatus != Task.Status.UNASSIGNED) {
+                logger.warn("Cannot change task status to UNASSIGNED unless current status is ARCHIVED. Task ID: {}, Current status: {}", 
+                        taskId, oldStatus);
+                throw new AppException(ErrorCode.INVALID_KEY, 
+                        "Task status can only be changed to UNASSIGNED from ARCHIVED status");
+            }
+            
+            // Update task fields
+            task.setTitle(request.getTitle());
+            task.setDescription(request.getDescription());
+            task.setStartDate(request.getStartDate());
+            task.setDueDate(request.getDueDate());
+            
+            if (request.getPriority() != null) {
+                task.setPriority(request.getPriority());
+            }
+            
+            if (newStatus != null) {
+                task.setStatus(newStatus);
+            }
+            
+            task.setAssignee(assignee);
+            
+            // Save the updated task
+            Task updatedTask = taskRepository.save(task);
+            
+            // Create task history record if status changed
+            if (newStatus != null && !oldStatus.equals(newStatus)) {
+                taskHistoryService.createTaskStatusHistory(updatedTask, oldStatus, newStatus);
+            }
+            
+            logger.info("Successfully updated task ID {} in project ID {}", taskId, projectId);
+            
+            // Get all tasks in the project sorted by updatedAt in descending order
+            List<Task> allTasks = taskRepository.findAllByProjectIdOrderByUpdatedAtDesc(projectId);
+            
+            // Map to response DTOs
+            return allTasks.stream()
+                    .map(ProjectTaskResponse::fromEntity)
+                    .collect(Collectors.toList());
+            
+        } catch (AppException e) {
+            throw e;
+        } catch (Exception e) {
+            logger.error("Error updating task ID {}: {}", taskId, e.getMessage(), e);
+            throw new AppException(ErrorCode.INTERNAL_ERROR, "Failed to update task");
         }
     }
 } 
