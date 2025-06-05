@@ -362,4 +362,40 @@ public class ProjectServiceImpl implements ProjectService {
             throw new AppException(ErrorCode.INTERNAL_ERROR, "Failed to retrieve projects for dropdown");
         }
     }
+
+    @Override
+    public PagedResponse<ProjectResponse> updateProjectAndReturnAll(Integer id, UpdateProjectRequest request) {
+        try {
+            // First update the project
+            ProjectResponse updatedProject = updateProject(id, request);
+            
+            // Get current user ID
+            Integer currentUserId = securityUtil.getCurrentUserId();
+            
+            logger.info("Retrieving all projects after updating project ID {}", id);
+            
+            // Create default pageable for first page with 10 items
+            Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "updatedAt"));
+            
+            // Query all projects with default filters
+            Page<Project> projectsPage = projectRepository.findProjectsByFilters(
+                    null,  // No name filter
+                    null,  // No status filter
+                    currentUserId,
+                    pageable
+            );
+            
+            // Map to response DTOs
+            Page<ProjectResponse> projectResponsePage = projectsPage.map(ProjectResponse::fromEntity);
+            
+            logger.info("Retrieved {} projects for user ID {} after update", projectsPage.getTotalElements(), currentUserId);
+            
+            return PagedResponse.fromPage(projectResponsePage);
+        } catch (AppException e) {
+            throw e;
+        } catch (Exception e) {
+            logger.error("Error updating project ID {} and retrieving all projects: {}", id, e.getMessage(), e);
+            throw new AppException(ErrorCode.INTERNAL_ERROR, "Failed to update project and retrieve all projects");
+        }
+    }
 } 

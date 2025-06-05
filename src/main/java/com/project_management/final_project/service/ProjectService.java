@@ -70,4 +70,12 @@ public interface ProjectService {
      * @return A paged response of project dropdown items
      */
     PagedResponse<ProjectDropdownResponse> getMyProjectsForDropdown(String search, Integer page, Integer size);
+    
+    /**
+     * Update an existing project and return all projects
+     * @param id The ID of the project to update
+     * @param request The project update request
+     * @return A paged response of all projects including the updated one
+     */
+    PagedResponse<ProjectResponse> updateProjectAndReturnAll(Integer id, UpdateProjectRequest request);
 } 

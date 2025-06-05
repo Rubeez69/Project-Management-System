@@ -4,10 +4,12 @@ import com.project_management.final_project.dto.request.AssignTaskRequest;
 import com.project_management.final_project.dto.request.CreateTaskRequest;
 import com.project_management.final_project.dto.request.ProjectTaskFilterRequest;
 import com.project_management.final_project.dto.request.UnassignedTaskFilterRequest;
+import com.project_management.final_project.dto.request.UpdateTaskRequest;
 import com.project_management.final_project.dto.request.UpdateTaskStatusRequest;
 import com.project_management.final_project.dto.response.AssignedTaskResponse;
 import com.project_management.final_project.dto.response.PagedResponse;
 import com.project_management.final_project.dto.response.ProjectTaskResponse;
+import com.project_management.final_project.dto.response.TaskDetailResponse;
 import com.project_management.final_project.dto.response.TaskResponse;
 import com.project_management.final_project.dto.response.UnassignedTaskResponse;
 import com.project_management.final_project.dto.response.UpcomingDueTaskResponse;
@@ -80,4 +82,20 @@ public interface TaskService {
      * @return Paged response of project tasks
      */
     PagedResponse<ProjectTaskResponse> getAllProjectTasks(Integer projectId, ProjectTaskFilterRequest filterRequest);
+    
+    /**
+     * Get detailed information about a task by ID
+     * @param taskId The ID of the task to retrieve
+     * @return The task details
+     */
+    TaskDetailResponse getTaskById(Integer taskId);
+    
+    /**
+     * Update an existing task
+     * @param taskId The ID of the task to update
+     * @param projectId The ID of the project the task belongs to
+     * @param request The task update request
+     * @return List of all tasks in the project including the updated task
+     */
+    List<ProjectTaskResponse> updateTask(Integer taskId, Integer projectId, UpdateTaskRequest request);
 } 

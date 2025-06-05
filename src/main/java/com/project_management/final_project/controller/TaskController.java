@@ -5,11 +5,13 @@ import com.project_management.final_project.dto.request.AssignTaskRequest;
 import com.project_management.final_project.dto.request.CreateTaskRequest;
 import com.project_management.final_project.dto.request.ProjectTaskFilterRequest;
 import com.project_management.final_project.dto.request.UnassignedTaskFilterRequest;
+import com.project_management.final_project.dto.request.UpdateTaskRequest;
 import com.project_management.final_project.dto.request.UpdateTaskStatusRequest;
 import com.project_management.final_project.dto.response.ApiResponse;
 import com.project_management.final_project.dto.response.AssignedTaskResponse;
 import com.project_management.final_project.dto.response.PagedResponse;
 import com.project_management.final_project.dto.response.ProjectTaskResponse;
+import com.project_management.final_project.dto.response.TaskDetailResponse;
 import com.project_management.final_project.dto.response.TaskResponse;
 import com.project_management.final_project.dto.response.UnassignedTaskResponse;
 import com.project_management.final_project.dto.response.UpcomingDueTaskResponse;
@@ -54,7 +56,7 @@ public class TaskController {
     
     @InitBinder
     protected void initBinder(WebDataBinder binder) {
-        if (binder.getTarget() instanceof CreateTaskRequest) {
+        if (binder.getTarget() instanceof CreateTaskRequest || binder.getTarget() instanceof UpdateTaskRequest) {
             binder.addValidators(dateValidator);
         }
     }
@@ -299,5 +301,95 @@ public class TaskController {
         PagedResponse<ProjectTaskResponse> response = taskService.getAllProjectTasks(projectId, filterRequest);
         
         return ApiResponseUtil.success(response);
+    }
+
+    /**
+     * Get detailed information about a task by ID
+     *
+     * @param taskId The ID of the task to retrieve
+     * @return The task details
+     */
+    @GetMapping("/{taskId}")
+    @PreAuthorize("hasRole('PROJECT_MANAGER') and hasAuthority('TASK_VIEW')")
+    public ApiResponse<TaskDetailResponse> getTaskById(@PathVariable Integer taskId) {
+        
+        logger.info("Getting detailed information for task ID: {}", taskId);
+        
+        TaskDetailResponse taskDetail = taskService.getTaskById(taskId);
+        
+        return ApiResponseUtil.success(taskDetail);
+    }
+
+    /**
+     * Update an existing task
+     *
+     * @param taskId    The ID of the task to update
+     * @param projectId The ID of the project the task belongs to
+     * @param request   The task update request
+     * @return List of all tasks in the project including the updated task
+     * 
+     * Note: If a task's status is UNASSIGNED and an assignee is provided, 
+     * the status will automatically be changed to TODO
+     */
+    @PatchMapping("/{taskId}/projects/{projectId}/edit-task")
+    @PreAuthorize("hasRole('PROJECT_MANAGER') and hasAuthority('TASK_UPDATE')")
+    public ResponseEntity<ApiResponse<List<ProjectTaskResponse>>> updateTask(
+            @PathVariable Integer taskId,
+            @PathVariable Integer projectId,
+            @Valid @RequestBody UpdateTaskRequest request,
+            BindingResult bindingResult) {
+        
+        logger.info("Updating task ID {} in project ID {}", taskId, projectId);
+        
+        // Check for validation errors
+        if (bindingResult.hasErrors()) {
+            String errorMessage = bindingResult.getFieldError() != null 
+                    ? bindingResult.getFieldError().getDefaultMessage() 
+                    : "Please fill in all required fields.";
+            
+            logger.warn("Validation error when updating task: {}", errorMessage);
+            
+            ApiResponse<List<ProjectTaskResponse>> response = ApiResponse.<List<ProjectTaskResponse>>builder()
+                    .code(HttpStatus.BAD_REQUEST.value())
+                    .message(errorMessage)
+                    .build();
+            
+            return ResponseEntity.badRequest().body(response);
+        }
+        
+        try {
+            List<ProjectTaskResponse> taskResponses = taskService.updateTask(taskId, projectId, request);
+            
+            ApiResponse<List<ProjectTaskResponse>> response = ApiResponse.<List<ProjectTaskResponse>>builder()
+                    .code(HttpStatus.OK.value())
+                    .message("Task updated successfully")
+                    .result(taskResponses)
+                    .build();
+            
+            return ResponseEntity.ok(response);
+        } catch (AppException e) {
+            String errorMessage;
+            
+            if (e.getErrorCode() == ErrorCode.DUPLICATE_ENTITY) {
+                errorMessage = "Task name already exists, please choose a different name.";
+            } else if (e.getErrorCode() == ErrorCode.INVALID_REQUEST) {
+                errorMessage = e.getMessage();
+            } else if (e.getErrorCode() == ErrorCode.NOT_FOUND) {
+                errorMessage = "Task or project not found.";
+            } else if (e.getErrorCode() == ErrorCode.UNAUTHORIZED) {
+                errorMessage = "You are not authorized to update this task.";
+            } else {
+                errorMessage = "Unable to update task. Please try again later.";
+            }
+            
+            logger.error("Error updating task: {}", e.getMessage());
+            
+            ApiResponse<List<ProjectTaskResponse>> response = ApiResponse.<List<ProjectTaskResponse>>builder()
+                    .code(HttpStatus.BAD_REQUEST.value())
+                    .message(errorMessage)
+                    .build();
+            
+            return ResponseEntity.badRequest().body(response);
+        }
     }
 } 
