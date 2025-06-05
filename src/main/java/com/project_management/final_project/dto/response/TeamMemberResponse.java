@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -17,6 +19,7 @@ public class TeamMemberResponse {
     private String name;
     private String email;
     private String specialization;
+    private LocalDateTime addedAt;
     
     public static TeamMemberResponse fromEntity(TeamMember teamMember) {
         if (teamMember == null) {
@@ -31,6 +34,7 @@ public class TeamMemberResponse {
                 .email(teamMember.getUser() != null ? teamMember.getUser().getEmail() : null)
                 .specialization(teamMember.getSpecialization() != null ? 
                         teamMember.getSpecialization().getName() : null)
+                .addedAt(teamMember.getAddedAt())
                 .build();
     }
 } 

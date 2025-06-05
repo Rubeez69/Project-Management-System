@@ -1,0 +1,5 @@
+INSERT INTO modules (name)
+SELECT 'TASK_HISTORY'
+WHERE NOT EXISTS (
+    SELECT 1 FROM modules WHERE name = 'TASK_HISTORY'
+);

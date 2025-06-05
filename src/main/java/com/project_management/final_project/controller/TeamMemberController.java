@@ -3,20 +3,18 @@ package com.project_management.final_project.controller;
 import com.project_management.final_project.dto.request.AddTeamMemberRequest;
 import com.project_management.final_project.dto.request.TeamMemberFilterRequest;
 import com.project_management.final_project.dto.response.ApiResponse;
-import com.project_management.final_project.dto.response.PageResponse;
+import com.project_management.final_project.dto.response.PagedResponse;
 import com.project_management.final_project.dto.response.TeamMemberResponse;
 import com.project_management.final_project.dto.response.TeamMemberWithWorkloadResponse;
 import com.project_management.final_project.exception.AppException;
 import com.project_management.final_project.exception.ErrorCode;
 import com.project_management.final_project.service.TeamMemberService;
 import com.project_management.final_project.util.ApiResponseUtil;
-import com.project_management.final_project.util.PaginationUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -39,16 +37,34 @@ public class TeamMemberController {
     public ApiResponse<Map<String, Object>> addTeamMembers(
             @PathVariable Integer projectId,
             @Valid @RequestBody List<AddTeamMemberRequest> requests) {
-        int addedCount = teamMemberService.addTeamMembers(projectId, requests);
-        return ApiResponseUtil.success(Map.of(
-                "message", "Team members added successfully",
-                "addedCount", addedCount
-        ));
+        try {
+            logger.info("Received request to add {} team members to project ID: {}", requests.size(), projectId);
+            
+            if (requests.isEmpty()) {
+                logger.warn("Empty team member request list for project ID: {}", projectId);
+                throw new AppException(ErrorCode.INVALID_REQUEST, "No team members provided");
+            }
+            
+            int addedCount = teamMemberService.addTeamMembers(projectId, requests);
+            
+            logger.info("Successfully added {} team members to project ID: {}", addedCount, projectId);
+            
+            return ApiResponseUtil.success(Map.of(
+                    "message", "Team members added successfully",
+                    "addedCount", addedCount
+            ));
+        } catch (AppException e) {
+            logger.error("Application exception while adding team members to project ID {}: {}", projectId, e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            logger.error("Unexpected error while adding team members to project ID {}: {}", projectId, e.getMessage(), e);
+            throw new AppException(ErrorCode.INTERNAL_ERROR, "Failed to add team members: " + e.getMessage());
+        }
     }
     
     @GetMapping("/projects/{projectId}/member-list")
     @PreAuthorize("hasRole('PROJECT_MANAGER') and hasAuthority('TEAM_VIEW')")
-    public ApiResponse<PageResponse<TeamMemberResponse>> getProjectTeamMembers(
+    public ApiResponse<PagedResponse<TeamMemberResponse>> getProjectTeamMembers(
             @PathVariable Integer projectId,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Integer specializationId,
@@ -62,12 +78,12 @@ public class TeamMemberController {
         Page<TeamMemberResponse> teamMembers = teamMemberService.getProjectTeamMembers(
                 projectId, filterRequest, pageable);
         
-        return ApiResponseUtil.success(PaginationUtil.createPageResponse(teamMembers));
+        return ApiResponseUtil.success(PagedResponse.fromPage(teamMembers));
     }
     
     @GetMapping("/projects/{projectId}/members-with-workload")
     @PreAuthorize("hasRole('PROJECT_MANAGER') and hasAuthority('TEAM_VIEW')")
-    public ApiResponse<PageResponse<TeamMemberWithWorkloadResponse>> getProjectTeamMembersWithWorkload(
+    public ApiResponse<PagedResponse<TeamMemberWithWorkloadResponse>> getProjectTeamMembersWithWorkload(
             @PathVariable Integer projectId,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Integer specializationId,
@@ -81,7 +97,7 @@ public class TeamMemberController {
         Page<TeamMemberWithWorkloadResponse> teamMembers = teamMemberService.getProjectTeamMembersWithWorkload(
                 projectId, filterRequest, pageable);
         
-        return ApiResponseUtil.success(PaginationUtil.createPageResponse(teamMembers));
+        return ApiResponseUtil.success(PagedResponse.fromPage(teamMembers));
     }
     
     @DeleteMapping("/{teamMemberId}")
@@ -122,7 +138,7 @@ public class TeamMemberController {
      */
     @GetMapping("/projects/{projectId}/my-team")
     @PreAuthorize("hasRole('DEVELOPER') and hasAuthority('TEAM_VIEW')")
-    public ApiResponse<PageResponse<TeamMemberResponse>> getMyTeamMembers(
+    public ApiResponse<PagedResponse<TeamMemberResponse>> getMyTeamMembers(
             @PathVariable Integer projectId,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Integer specializationId,
@@ -138,6 +154,6 @@ public class TeamMemberController {
         Page<TeamMemberResponse> teamMembers = teamMemberService.getMyTeamMembers(
                 projectId, filterRequest, pageable);
         
-        return ApiResponseUtil.success(PaginationUtil.createPageResponse(teamMembers));
+        return ApiResponseUtil.success(PagedResponse.fromPage(teamMembers));
     }
 } 

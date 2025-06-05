@@ -19,13 +19,14 @@ public class UserController {
     
     private final UserService userService;
     
-    @GetMapping("/select-member")
+    @GetMapping("/projects/{projectId}/select-member")
     @PreAuthorize("hasRole('PROJECT_MANAGER') and hasAuthority('USER_VIEW')")
     public ApiResponse<PagedResponse<UserResponse>> getUsersForTeamSelection(
+            @PathVariable Integer projectId,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) List<String> roles,
             @RequestParam(defaultValue = "0") Integer page,
-            @RequestParam(defaultValue = "10") Integer size,
+            @RequestParam(defaultValue = "6") Integer size,
             @RequestParam(defaultValue = "name") String sortBy,
             @RequestParam(defaultValue = "asc") String sortDirection) {
         
@@ -38,7 +39,7 @@ public class UserController {
                 .sortDirection(sortDirection)
                 .build();
         
-        PagedResponse<UserResponse> response = userService.getUsersForTeamSelection(filterRequest);
+        PagedResponse<UserResponse> response = userService.getUsersForTeamSelection(projectId, filterRequest);
         return ApiResponseUtil.success(response);
     }
 } 

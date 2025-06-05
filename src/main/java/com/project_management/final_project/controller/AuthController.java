@@ -1,6 +1,7 @@
 package com.project_management.final_project.controller;
 
 import com.project_management.final_project.dto.request.AuthRequest;
+import com.project_management.final_project.dto.request.RefreshTokenRequest;
 import com.project_management.final_project.dto.request.ResetPasswordRequest;
 import com.project_management.final_project.dto.response.ApiResponse;
 import com.project_management.final_project.dto.response.AuthResponse;
@@ -33,8 +34,8 @@ public class AuthController {
 
     // POST /api/auth/refresh
     @PostMapping("/refresh")
-    public ApiResponse<String> refreshToken(@RequestBody String refreshToken) {
-        var result = authService.refreshAccessToken(refreshToken);
+    public ApiResponse<String> refreshToken(@RequestBody RefreshTokenRequest request) {
+        var result = authService.refreshAccessToken(request.getRefreshToken());
         return ApiResponseUtil.success(result);
     }
 }
